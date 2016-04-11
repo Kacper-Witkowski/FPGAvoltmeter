@@ -12,9 +12,10 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.std_logic_unsigned.all;
 
 entity spi_controler is
-    Port ( -- host side
-           clk          : in  STD_LOGIC;
+    Port ( clk          : in  STD_LOGIC;
            reset     	: in  STD_LOGIC;
+			  
+			  -- host side
            spi_go     	: in  STD_LOGIC;
 			  par_in			: in 	std_logic_vector(9 downto 0); -- 0 to 7: amp order, 8: amp(1) or adc(0), 9: adc channel 0 or 1
            par_out     	: out  STD_LOGIC_vector(13 downto 0);

@@ -12,15 +12,18 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.std_logic_unsigned.all;
 
 entity RS232_controller is
-    Port ( 	--host side
-				p_in : in  STD_LOGIC;
-				p_out : out  STD_LOGIC;
-				clk : in  STD_LOGIC;
-				reset : in  STD_LOGIC;
+    Port ( 	clk 		: in  STD_LOGIC;
+				reset 	: in  STD_LOGIC;
+				
+				--host side
+				par_in 	: in  STD_LOGIC_vector(7 downto 0);
+				par_out 	: out  STD_LOGIC_vector(7 downto 0);
+				rs_go 	: in std_logic;
+				busy 		: out std_logic;
 				
 				--serial interface side
-				RX : in  STD_LOGIC;
-				TX : out  STD_LOGIC
+				RX 		: in  STD_LOGIC;
+				TX 		: out  STD_LOGIC
 				);
 end RS232_controller;
 
