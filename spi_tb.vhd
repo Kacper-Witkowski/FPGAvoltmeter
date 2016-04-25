@@ -18,7 +18,7 @@ ARCHITECTURE behavior OF spi_tb IS
  
     -- Component Declaration for the Unit Under Test (UUT)
  
-    COMPONENT spi_controler
+    COMPONENT spi_controller
     PORT(
          clk : IN  std_logic;
          reset : IN  std_logic;
@@ -54,7 +54,7 @@ ARCHITECTURE behavior OF spi_tb IS
 BEGIN
  
 	-- Instantiate the Unit Under Test (UUT)
-   uut: spi_controler PORT MAP (
+   uut: spi_controller PORT MAP (
           clk => clk,
           reset => reset,
           spi_go => spi_go,

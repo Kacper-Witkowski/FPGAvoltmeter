@@ -4,7 +4,7 @@
 -- 
 -- Module Name:  	 	FPGA voltmeter - top level entity
 -- Project Name: 		FPGA voltmeter
--- Target Devices: 	Spartan3E
+-- Target Device: 	Spartan3E
 -- Description: 		SPI cotroller for comunication with ADC
 ----------------------------------------------------------------------------------
 library IEEE;
@@ -35,9 +35,10 @@ component main_unit is
 			spi_in 		: in std_logic_vector(13 downto 0);			
 			--rs
 			rs_go 		: out std_logic;
-			rs_out 		: out std_logic_vector(7 downto 0);
-			rs_busy 		: in std_logic;
-			rs_in 		: in std_logic_vector(7 downto 0)
+			rs_out 		: out std_logic_vector(8 downto 0);
+			r_busy 		: in std_logic;
+			t_busy 		: in std_logic;
+			rs_in 		: in std_logic_vector(8 downto 0)
 	);
 end component;
 
@@ -59,10 +60,12 @@ end component;
 component RS232_controller is
 	port(		clk,reset 	: in  STD_LOGIC;
 				--host side
-				par_in 		: in  STD_LOGIC_vector(7 downto 0);
-				par_out 		: out  STD_LOGIC_vector(7 downto 0);
+				par_in 		: in  STD_LOGIC_vector(8 downto 0);
+				par_out 		: out  STD_LOGIC_vector(8 downto 0);
 				rs_go 		: in std_logic;
-				busy 			: out std_logic;		
+				t_busy 			: out std_logic;
+				r_busy 		: in std_logic;
+				
 				--serial interface side
 				RX 			: in  STD_LOGIC;
 				TX 			: out  STD_LOGIC	
@@ -75,18 +78,19 @@ signal spi_busy : std_logic;
 signal spi_out : std_logic_vector(9 downto 0);
 signal spi_in : std_logic_vector(13 downto 0);
 signal rs_go : std_logic;
-signal rs_busy : std_logic;
-signal rs_out : std_logic_vector(7 downto 0);
-signal rs_in : std_logic_vector(7 downto 0);
+signal t_busy : std_logic;
+signal r_busy : std_logic;
+signal rs_out : std_logic_vector(8 downto 0);
+signal rs_in : std_logic_vector(8 downto 0);
 
 begin
 	comp1: main_unit 			port map (	clk => clk, reset => reset, 
 													spi_go => spi_go, spi_out => spi_out, spi_busy => spi_busy, spi_in => spi_in,
-													rs_go => rs_go, rs_out => rs_out, rs_busy => rs_busy, rs_in => rs_in);
+													rs_go => rs_go, rs_out => rs_out, r_busy => r_busy, t_busy => t_busy, rs_in => rs_in);
 	comp2: spi_controller 	port map (	clk => clk, reset => reset, 
 													spi_go => spi_go, par_in => spi_out, busy => spi_busy, par_out => spi_in,
 													miso => miso, mosi => mosi, sclk => sck, n_cs => ncs);
 	comp3: RS232_controller port map (	clk => clk, reset => reset, 
-													rs_go => rs_go, par_in => rs_out, busy => rs_busy, par_out => rs_in,
+													rs_go => rs_go, par_in => rs_out, r_busy => r_busy, t_busy => t_busy, par_out => rs_in,
 													RX => RX, TX => TX);	
 end Behavioral;

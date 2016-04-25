@@ -4,14 +4,14 @@
 -- 
 -- Module Name:  	 	SPI controller
 -- Project Name: 		FPGA voltmeter
--- Target Devices: 	Spartan3E
+-- Target Device: 	Spartan3E
 -- Description: 		SPI cotroller for comunication with ADC
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.std_logic_unsigned.all;
 
-entity spi_controler is
+entity spi_controller is
     Port ( clk          : in  STD_LOGIC;
            reset     	: in  STD_LOGIC;
 			  
@@ -27,9 +27,9 @@ entity spi_controler is
            sclk         : out  STD_LOGIC; -- for both devices
            n_cs         : out  STD_LOGIC_vector(5 downto 0) -- enable SPI communication with only one device on board
            );
-end spi_controler;
+end spi_controller;
 
-architecture Behavioral of spi_controler is
+architecture Behavioral of spi_controller is
 
 type states is (idle, adc_conv_start, adc_rdy, adc_recv, gain_rdy, gain_tran);
 signal recv  : std_logic_vector(33 downto 0);
@@ -49,31 +49,37 @@ begin
 			  state <= idle;
 		 elsif clk'event and clk = '1' then
 			  case state is
+					---------------------------
 					when idle =>
 						sclk <= '0';
 						n_cs <= "111110";
 						mosi <= 'Z';
 						busy <= '0';
 						cnt <= (others => '0');
+						
 						if spi_go = '1' and par_in(8) = '0' then
+							busy <= '1';
 							ch <= par_in(9);
 							state <= adc_conv_start;
 						elsif spi_go = '1' and par_in(8) = '1' then
+							busy <= '1';
 							tran <= par_in(7 downto 0);
 							state <= gain_rdy;
+						else
+							state <= idle;
 						end if;
 					
 					-- adc
+					---------------------------
 					when adc_conv_start =>
-						busy <= '1';
 						n_cs(0) <= '1';
 						state <= adc_rdy;
-						 
+					---------------------------
 					when adc_rdy =>
 						n_cs(0) <= '0';
 						sclk <= '1';
 						state <= adc_recv;
-					
+					---------------------------
 					when adc_recv => 
 						sclk <= '0';
 						recv <= recv(32 downto 0) & miso;
@@ -90,15 +96,15 @@ begin
 						end if;
 						
 					-- amp
+					---------------------------
 					when gain_rdy =>
 						n_cs(1) <= '0';
 						sclk <= '0';
 						if cnt > 0 then
 							tran <= tran(6 downto 0) & '1';
 						end if;
-						busy <= '1';
 						state <= gain_tran;
-					
+					---------------------------
 					when gain_tran =>
 						sclk <= '1';					
 						if cnt < "0000111" then
@@ -107,10 +113,7 @@ begin
 						else
 							state <= idle;
 						end if;
-						
-					when others =>
-						state <= idle;
-						
+					---------------------------	
 				end case;
 			end if;
 	end process;
