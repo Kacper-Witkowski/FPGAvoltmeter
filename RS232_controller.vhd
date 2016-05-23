@@ -38,6 +38,8 @@ signal t_shift : std_logic_vector(8 downto 0);
 signal r_shift : std_logic_vector(8 downto 0);
 signal t_state : t_states;
 signal r_state : r_states;
+signal t_delay : std_logic_vector(5 downto 0);
+signal r_delay : std_logic_vector(5 downto 0);
 
 begin
 
@@ -47,6 +49,7 @@ begin
 		t_state <= idle;
 		t_cnt <= (others => '0');
 		t_shift <= (others => '0');
+		t_delay <= "101011";
 		
 	elsif clk'event and clk = '1' then
 		case t_state is
@@ -54,6 +57,7 @@ begin
 			when idle =>
 				t_busy <= '0';
 				TX <= '1';
+				t_delay <= "101011";
 				if rs_go = '1' then
 					t_busy <= '1';
 					t_shift <= par_in; -- todo: counting parity bit(solution: counting done in main unit)
@@ -69,12 +73,16 @@ begin
 					t_shift <= t_shift(7 downto 0) & '1';
 					TX <= t_shift(8);
 				end if;
+				t_delay <= "101011";
 				t_state <= tran_chck;			
 			---------------------------
 			when tran_chck =>				
 				if t_cnt < "1011" then
-					t_cnt <= t_cnt + "01";
-					t_state <= tran_rdy;
+					t_delay <= t_delay - "01";
+					if t_delay = 0 then
+						t_cnt <= t_cnt + "01";
+						t_state <= tran_rdy;
+					end if;
 				else
 					t_busy <= '0';
 					t_cnt <= (others => '0');
@@ -92,23 +100,29 @@ begin
 		r_cnt <= (others => '0');
 		r_shift <= (others => '0');
 		par_out <= (others => '0');
+		r_delay <= "101011";
 		
 	elsif clk'event and clk = '1' then
 		case r_state is
 			---------------------------
 			when idle =>
-				r_busy <= '0';				
+				r_busy <= '0';	
+				r_delay <= "101011";
 				if RX = '0' then
 					r_state <= recv_rdy;
 				end if;
 			---------------------------	
-			when recv_rdy =>				
-				r_state <= recv_chck;
+			when recv_rdy =>
+				r_delay <= r_delay - "01";
+				if r_delay = 0 then
+					r_state <= recv_chck;
+				end if;
 			---------------------------					
 			when recv_chck =>
 				r_shift <= r_shift(7 downto 0) & RX;
 				if r_cnt < "1001" then
 					r_cnt <= r_cnt + "01";
+					r_delay <= "101011";
 					r_state <= recv_rdy;
 				else
 					r_busy <= '1';

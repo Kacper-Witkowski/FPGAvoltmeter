@@ -60,6 +60,7 @@ signal adc_ord : std_logic_vector(9 downto 0); -- adc order
 signal adc_result : std_logic_vector(13 downto 0); -- last adc mesurment
 signal amp_prog_done, amp_prog_td, amp_prog_d : std_logic;
 signal rs_buf : std_logic_vector(8 downto 0);
+signal idle_delay : std_logic_vector(2 downto 0);
 
 --decoder signals
 signal msg : std_logic_vector(15 downto 0); -- received from rs
@@ -67,6 +68,10 @@ signal dec : std_logic;
 
 --parser signals
 signal par_en : std_logic;
+signal amp_prog_sig : std_logic;
+signal ack_sig : std_logic;
+signal par_sig : std_logic;
+signal sample_sig : std_logic;
 
 begin
 
@@ -95,27 +100,59 @@ begin
 		 end if;
 	 end process;
 	 
-	 amp_prog : process(amp_prog_d, amp_prog_td, reset)
+	 amp_prog_sig <= amp_prog_d or amp_prog_td;
+	 
+	 amp_prog : process(amp_prog_sig, reset)
 	 begin
-	 if reset = '1' or (amp_prog_d'event and amp_prog_d = '1') then
+	 if reset = '1' then
 		 amp_prog_done <= '1';
-	 elsif amp_prog_td'event and amp_prog_td = '1' then
-		 amp_prog_done <= '0';	 
+	 elsif amp_prog_sig'event and amp_prog_sig = '1' then
+		 if amp_prog_d = '1' then
+			 amp_prog_done <= '1';
+		 else
+			 amp_prog_done <= '0';	
+		 end if; 
 	 end if;
 	 end process;
 	 
-	 sample_counter : process(reset, sample_cnt_set, sample)
+--	 amp_prog : process(amp_prog_d, amp_prog_td, reset)
+--	 begin
+--	 if reset = '1' or (amp_prog_d'event and amp_prog_d = '1') then
+--		 amp_prog_done <= '1';
+--	 elsif amp_prog_td'event and amp_prog_td = '1' then
+--		 amp_prog_done <= '0';	 
+--	 end if;
+--	 end process;
+	 
+	 sample_sig <= sample or sample_cnt_set;
+	 
+	 sample_counter : process(reset, sample_sig)
 	 begin
 		if reset = '1' then
 			sample_cnt <= (others => '0');
-		elsif sample_cnt_set'event and sample_cnt_set = '1' then
-			sample_cnt <= msg(9 downto 0);
-		elsif sample'event and sample = '1' then
-			if sample_cnt < "1111111111" then
-				sample_cnt <= sample_cnt - "01";
+		elsif sample_sig'event and sample_sig = '1' then
+			if sample_cnt_set = '1' then
+				sample_cnt <= msg(9 downto 0);
+			else
+				if sample_cnt < "1111111111" then
+					sample_cnt <= sample_cnt - "01";
+				end if;
 			end if;
 		end if;
 	 end process;
+	 
+--	 sample_counter : process(reset, sample_cnt_set, sample)
+--	 begin
+--		if reset = '1' then
+--			sample_cnt <= (others => '0');
+--		elsif sample_cnt_set'event and sample_cnt_set = '1' then
+--			sample_cnt <= msg(9 downto 0);
+--		elsif sample'event and sample = '1' then
+--			if sample_cnt < "1111111111" then
+--				sample_cnt <= sample_cnt - "01";
+--			end if;
+--		end if;
+--	 end process;
 	 
     measure_proc : process (clk, reset) -- measurements state machine
     begin
@@ -128,6 +165,7 @@ begin
 				ack_clear <= '0';
 				amp_prog_d <= '0';
 				rs_go <= '0';
+				idle_delay <= (others => '1');
             
         elsif clk'event and clk = '1' then
             case meas_state is
@@ -140,6 +178,7 @@ begin
 					 ack_clear <= '0';
 					 sample <= '0';
 					 rs_go <= '0';
+					 idle_delay <= (others => '1');
                 if amp_prog_done = '0' then -- when programming amps wasn't done
                     meas_state <= prog;
                 elsif sample_cnt > "0000000000" and meas_unable = '0' then -- when are samples to do
@@ -158,7 +197,7 @@ begin
                     if spi_cnt = "00000010" then
                         spi_go_s <= '0';
                     elsif spi_busy = '0' and spi_cnt >= "0000000100" then
-                        adc_result <= spi_in;
+								adc_result <= spi_in;
                         meas_state <= send_fst_byte;
                     end if;
                 ---------------------------
@@ -166,20 +205,25 @@ begin
 						  if t_busy = '0' then
 							   rs_buf(8 downto 7) <= ack;
 							   rs_buf(6 downto 1) <= adc_result(13 downto 8);
-							   rs_buf(0) <= (rs_buf(8) xor rs_buf(7) xor rs_buf(6) xor rs_buf(5) xor rs_buf(4) xor rs_buf(3) xor rs_buf(2) xor rs_buf(1));
+							   rs_buf(0) <= (ack(1) xor ack(0) xor adc_result(13) xor adc_result(12) xor adc_result(11) xor adc_result(10) xor adc_result(9) xor adc_result(8));
 							   rs_go <= '1';
-							   meas_state <= semi_idle;
+						  end if;
+						  
+						  idle_delay <= idle_delay - "01";
+						  
+						  if idle_delay = 0 then
+								rs_go <= '0';
+								meas_state <= semi_idle;
 						  end if;
                 ---------------------------
                 when semi_idle =>
-                    rs_go <= '0';
                     if t_busy = '0' then
                         meas_state <= send_snd_byte;
                     end if;
                 ---------------------------
                 when send_snd_byte =>
                     rs_buf(8 downto 1) <= adc_result(7 downto 0);
-                    rs_buf(0) <= (rs_buf(8) xor rs_buf(7) xor rs_buf(6) xor rs_buf(5) xor rs_buf(4) xor rs_buf(3) xor rs_buf(2) xor rs_buf(1));
+                    rs_buf(0) <= (adc_result(0) xor adc_result(7) xor adc_result(6) xor adc_result(5) xor adc_result(4) xor adc_result(3) xor adc_result(2) xor adc_result(1));
                     rs_go <= '1';
 						  ack_clear <= '1';
                     meas_state <= idle;
@@ -190,17 +234,31 @@ begin
     
 	 spi_go <= spi_go_s;
     rs_out <= rs_buf;
+    par_sig <= clk or r_busy;
         
-    parser_en : process(r_busy, clk, reset) -- <- TODO
+    parser_en : process(par_sig, reset)
     begin
         if reset = '1' then
             par_en <= '0';
-        elsif r_busy'event and r_busy = '1' then
-            par_en <= '1';
-        elsif clk'event and clk = '1' then
-            par_en <= '0';
+        elsif par_sig'event and par_sig = '1' then
+				if r_busy = '1' then
+					par_en <= '1';
+				else
+					par_en <= '0';
+				end if;
         end if;
     end process;
+	 
+--    parser_en : process(r_busy, clk, reset) -- <- TODO
+--    begin
+--        if reset = '1' then
+--            par_en <= '0';
+--        elsif r_busy'event and r_busy = '1' then
+--            par_en <= '1';
+--        elsif clk'event and clk = '1' then
+--            par_en <= '0';
+--        end if;
+--    end process;
     
     join_bytes : process (clk, reset) -- instruction parser state machine -- DONE!
     begin
@@ -244,18 +302,37 @@ begin
         end if;
     end process;
 	 
-	 acknowledge : process(reset, ack_set, ack_clear)
+	 ack_sig <= ack_set or ack_clear;
+	 
+	 acknowledge : process(reset, ack_sig)
 	 begin
-		  if reset = '1' or (ack_clear'event and ack_clear = '1') then
+		  if reset = '1' then
 			  ack <= "00";
-		  elsif (ack_set'event and ack_set = '1') then
-			   if wrong = '1' then
-				   ack <= "10";
-			   else
-				   ack <= "11";
-			   end if;
+		  elsif ack_sig'event and ack_sig = '1' then
+				if ack_set = '1' then
+					if wrong = '1' then
+						ack <= "10";
+					else
+						ack <= "11";
+					end if;
+				else
+					ack <= "00";
+				end if;
 		  end if;
 	 end process;
+	 
+--	 acknowledge : process(reset, ack_set, ack_clear)
+--	 begin
+--		  if reset = '1' or (ack_clear'event and ack_clear = '1') then
+--			  ack <= "00";
+--		  elsif (ack_set'event and ack_set = '1') then
+--			   if wrong = '1' then
+--				   ack <= "10";
+--			   else
+--				   ack <= "11";
+--			   end if;
+--		  end if;
+--	 end process;
     
     decoder : process(clk, reset) -- configurator state machine -- DONE!
     begin

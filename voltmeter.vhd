@@ -21,10 +21,20 @@ entity voltmeter is
            tx 		: out  STD_LOGIC;
 			  --OTHER
            reset 	: in  STD_LOGIC;
-           clk 	: in  STD_LOGIC);
+           CLKIN_IN 	: in  STD_LOGIC);
 end voltmeter;
 
 architecture Behavioral of voltmeter is
+COMPONENT DCM_CLOCK
+	PORT(
+		CLKIN_IN : IN std_logic;
+		RST_IN : IN std_logic;          
+		CLKFX_OUT : OUT std_logic;
+		CLKIN_IBUFG_OUT : OUT std_logic;
+		LOCKED_OUT : OUT std_logic
+		);
+	END COMPONENT;
+
 
 component main_unit is
 	port(	clk, reset	: in std_logic;
@@ -63,8 +73,8 @@ component RS232_controller is
 				par_in 		: in  STD_LOGIC_vector(8 downto 0);
 				par_out 		: out  STD_LOGIC_vector(8 downto 0);
 				rs_go 		: in std_logic;
-				t_busy 			: out std_logic;
-				r_busy 		: in std_logic;
+				t_busy 		: out std_logic;
+				r_busy 		: out std_logic;
 				
 				--serial interface side
 				RX 			: in  STD_LOGIC;
@@ -73,6 +83,7 @@ component RS232_controller is
 end component;
 
 --internal signals
+signal clk : std_logic;
 signal spi_go : std_logic;
 signal spi_busy : std_logic;
 signal spi_out : std_logic_vector(9 downto 0);
@@ -93,4 +104,11 @@ begin
 	comp3: RS232_controller port map (	clk => clk, reset => reset, 
 													rs_go => rs_go, par_in => rs_out, r_busy => r_busy, t_busy => t_busy, par_out => rs_in,
 													RX => RX, TX => TX);	
+	Inst_DCM_CLOCK: DCM_CLOCK PORT MAP(
+		CLKIN_IN => CLKIN_IN,
+		RST_IN => reset,
+		CLKFX_OUT => clk
+		--,CLKIN_IBUFG_OUT => ,
+		--LOCKED_OUT => 
+	);
 end Behavioral;

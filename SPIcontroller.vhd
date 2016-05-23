@@ -92,6 +92,7 @@ begin
 							else
 								par_out <= recv(14 downto 1);
 							end if;
+							busy <= '0';
 							state <= idle;
 						end if;
 						
@@ -111,6 +112,7 @@ begin
 							cnt <= cnt + "01";
 							state <= gain_rdy;
 						else
+							busy <= '0';
 							state <= idle;
 						end if;
 					---------------------------	
